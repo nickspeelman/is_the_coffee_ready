@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Coffee Status</title>
+  <meta charset="UTF-8" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 50px;
+    }
+    .status {
+      font-size: 72px;
+      margin-bottom: 20px;
+    }
+    .timestamp, .scheduled {
+      font-size: 20px;
+      margin-top: 10px;
+      color: gray;
+    }
+    button {
+      font-size: 24px;
+      padding: 10px 30px;
+      margin-top: 40px;
+    }
+    input[type="time"] {
+      font-size: 18px;
+      padding: 5px;
+      margin: 10px;
+    }
+    label {
+      font-size: 20px;
+      margin-right: 5px;
+    }
+    #scheduled-caption {
+      display: none;
+    }
+    #scheduled-input-group {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="status" id="status">Loading...</div>
+  <div class="timestamp" id="timestamp"></div>
+  
+  <div id="scheduled-caption" class="scheduled"></div>
+
+  <div id="scheduled-input-group">
+    <label for="scheduledInput">Scheduled For:</label>
+    <input type="time" id="scheduledInput" value="06:30" />
+  </div>
+
+  <button onclick="setStatus()">The coffee is ready!</button>
+
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbx8zNxsH9vGN0Fas-uuWJa3dmyLiChRAy7L_RidgeZQ6GtQvTQDCrNsNoBEQmSc1mF1OA/exec";
+
+    async function loadStatus() {
+      const response = await fetch(API_URL);
+      const data = await response.json();
+
+      // Set main status
+      document.getElementById("status").textContent = data.status;
+
+      // Format and display last updated (local time)
+      const updatedDate = new Date(data.time);
+      const updatedFormatted = updatedDate.toLocaleString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true
+      });
+      document.getElementById("timestamp").textContent = "Last updated at " + updatedFormatted;
+
+      const isReady = data.status.toUpperCase() === "YES";
+      const button = document.querySelector("button");
+
+      const scheduledCaption = document.getElementById("scheduled-caption");
+      const scheduledInputGroup = document.getElementById("scheduled-input-group");
+
+      if (isReady) {
+        // Button says "Reset"
+        button.textContent = "Reset";
+
+        // Show caption
+        const scheduledDate = new Date(data.scheduled);
+        const scheduledFormatted = scheduledDate.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+          timeZone: "UTC"
+        });
+        scheduledCaption.textContent = "Schedule for " + scheduledFormatted;
+        scheduledCaption.style.display = "block";
+        scheduledInputGroup.style.display = "none";
+
+        // Pre-fill input for next round (if user re-clicks)
+        const utcHours = scheduledDate.getUTCHours().toString().padStart(2, "0");
+        const utcMinutes = scheduledDate.getUTCMinutes().toString().padStart(2, "0");
+        document.getElementById("scheduledInput").value = `${utcHours}:${utcMinutes}`;
+      } else {
+        // Button says "The coffee is ready!"
+        button.textContent = "The coffee is ready!";
+        scheduledCaption.style.display = "none";
+        scheduledInputGroup.style.display = "block";
+      }
+    }
+
+    async function setStatus() {
+      const isReset = document.querySelector("button").textContent === "Reset";
+      const params = new URLSearchParams();
+
+      if (isReset) {
+        params.append("action", "reset");
+      } else {
+        const scheduled = document.getElementById("scheduledInput").value;
+        params.append("action", "ready");
+        params.append("scheduled", scheduled);
+      }
+
+      await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: params
+      });
+
+      loadStatus();
+    }
+
+    loadStatus();
+  </script>
+</body>
+</html>
